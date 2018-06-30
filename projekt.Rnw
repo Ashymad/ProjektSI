@@ -74,7 +74,8 @@ options(tikzMetricsDictionary="~/R/tikzMetrics") # speeds tikz up
 @ 
 
 <<Data>>=
-users <- read.csv("data/UserList.csv")
+users <- read.csv("data/users_cleaned.csv")
+users$birth_date <- as.Date(users$birth_date)
 users.scored <- users[users$stats_mean_score > 0,]
 @
 
@@ -106,6 +107,24 @@ ggplot() +
     scale_y_continuous(name="Prawdop")
 @
 
+<<dates, fig.cap="Podpis">>=
+library(ggplot2)
+xseq <- seq(min(users$birth_date, na.rm=TRUE),
+	    max(users$birth_date, na.rm=TRUE),
+	    length=100)
+scorn <- dnorm(as.numeric(xseq),
+	       mean=mean(as.numeric(users$birth_date), na.rm=TRUE),
+	       sd=sd(as.numeric(users$birth_date, na.rm=TRUE)))
+hists <- hist(users$birth_date, plot=FALSE,
+	      breaks='years')
+
+ggplot() +
+    geom_bar(aes(as.Date(hists$mids, origin="1970-01-01"),
+		 hists$density), stat='identity') +
+    geom_line(aes(xseq, scorn), col="red") +
+    scale_x_date(name="Data") +
+    scale_y_continuous(name="Prawdop")
+@
 
 % Bibliografia
 
