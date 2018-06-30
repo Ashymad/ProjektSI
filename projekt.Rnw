@@ -1,0 +1,112 @@
+\documentclass[a4paper,12pt]{mwart}
+
+\usepackage[polish]{babel}
+\usepackage{indentfirst}
+\usepackage{polski}
+\frenchspacing
+
+\usepackage{enumerate}
+\usepackage{csquotes}
+\DeclareQuoteAlias{croatian}{polish}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{makecell}
+\usepackage{siunitx}
+\sisetup{output-decimal-marker = {,}}
+\usepackage{icomma}
+\let\lll\undefined
+\usepackage{amsmath, amssymb, amsfonts}
+\usepackage{mathtools}
+\usepackage{setspace}
+\usepackage{fontspec,xunicode}
+\usepackage{booktabs}
+\usepackage{tikz}
+\setmainfont{Noto Serif}
+
+<<Opcje globalne, include=FALSE>>=
+library(knitr)
+library(kableExtra)
+
+knitr::opts_chunk$set(echo=FALSE, warning=FALSE, message=FALSE)
+knitr::opts_knit$set(concordance = TRUE);
+
+Sys.setlocale(category = 'LC_ALL','pl_PL.UTF-8')
+Sys.setenv(LANG="PL")
+Sys.setenv(LC_ALL="pl_PL.UTF-8")
+
+options(knitr.table.format = "latex")
+@ 
+
+<<tikzSettings>>=
+options(width=71)
+options(digits=7)
+
+size = 5
+
+knitr::opts_chunk$set(keep.source=TRUE,
+                      fig.width=size,
+                      fig.height=size*6/7,
+                      fig.lp="fig:",
+                      fig.env="figure",
+                      fig.pos='H',
+                      fig.path='figures-knitr/',  # a unique ID here if you got
+                      cache.path='cache-knitr/',  # many documents in one dir
+                      cache=TRUE,
+                      tidy=FALSE,
+                      dev='tikz',
+                      external=FALSE,
+                      fig.align='center',
+                      size='small')
+
+options(tikzDefaultEngine = "xetex",
+        tikzXelatexPackages = 
+          c("\\usepackage{tikz}\n",
+            "\\usepackage{fontspec,xunicode}\n",
+            "\\setmainfont{Noto Serif}\n"
+            ),
+        tikzUnicodeMetricPackages =
+          c("\\usetikzlibrary{calc}\n",
+            "\\usepackage{fontspec,xunicode}\n"
+            )
+        )
+
+options(tikzMetricsDictionary="~/R/tikzMetrics") # speeds tikz up
+@ 
+
+<<Data>>=
+users <- read.csv("data/UserList.csv")
+users.scored <- users[users$stats_mean_score > 0,]
+@
+
+
+\title{Analiza oceniania japońskich seriali animowanych przez użytkowników
+serwisu MyAnimeList}
+\author{Szymon Mikulicz}
+\onehalfspacing
+\begin{document}
+\maketitle
+\section{Abstrakt}
+\section{Wstęp}
+\section{Cel}
+\section{Badania}
+
+<<scores, fig.cap="Podpis">>=
+library(ggplot2)
+xseq <- seq(0, 10, length=100)
+scorn <- dnorm(xseq,
+	       mean=mean(users.scored$stats_mean_score, na.rm=TRUE),
+	       sd=sd(users.scored$stats_mean_score,
+		     na.rm=TRUE))
+hists <- hist(users.scored$stats_mean_score, plot=FALSE, breaks=40)
+
+ggplot() +
+    geom_bar(aes(hists$mids, hists$density), stat='identity') +
+    geom_line(aes(xseq, scorn), col="red") +
+    scale_x_continuous(name="Ocena") +
+    scale_y_continuous(name="Prawdop")
+@
+
+
+% Bibliografia
+
+\end{document}
