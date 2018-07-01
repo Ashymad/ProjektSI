@@ -45,7 +45,7 @@ size = 5
 
 knitr::opts_chunk$set(keep.source=TRUE,
                       fig.width=size,
-                      fig.height=size*6/7,
+                      fig.height=size*5/7,
                       fig.lp="fig:",
                       fig.env="figure",
                       fig.pos='H',
@@ -74,9 +74,18 @@ options(tikzMetricsDictionary="~/R/tikzMetrics") # speeds tikz up
 @ 
 
 <<Data>>=
-users <- read.csv("data/users_cleaned.csv")
-users$birth_date <- as.Date(users$birth_date)
-users.scored <- users[users$stats_mean_score > 0,]
+#users.raw <- read.csv('data/UserList.csv')
+#users <- read.csv("data/users_cleaned.csv")
+#users$birth_date <- as.Date(users$birth_date)
+#users.raw.scored <- users.raw[users.raw$stats_mean_score > 0,]
+#users.scored <- users[users$stats_mean_score > 0,]
+#save(users.raw, users, users.raw.scored, users.scored, file="data/data.Rdata")
+load("data/data.Rdata")
+@
+
+<<Obliczenia>>=
+library(ggplot2)
+library(MASS)
 @
 
 
@@ -91,8 +100,18 @@ serwisu MyAnimeList}
 \section{Cel}
 \section{Badania}
 
-<<scores, fig.cap="Podpis">>=
-library(ggplot2)
+Jako że, wybrana próba jest wyłącznie podgrupą wszystkich użytkowników,
+mianowicię tą częścią, która podała swoją datę urodzenia, kraj pochodzenia orza
+płeć, z pominięciem użytkoników z wartościami potencjalnie fałszywymi (typu
+data urodzenia z przed stu laty, lub w przyszłości), przeprowadzono porównanie
+parametrów rozkładu średniej wystawionych ocen pomiędzy wszystkim
+użytkownikami, a uzytkownikami przefiltrowanymi.
+
+Jednak najpierw sprawdzono normalność rozkładów badanych, mianowinie rozkładu:
+wystawionych ocen (przefiltrowanych i nie), daty urodzenia i liczby obejrzanych
+seriali.
+
+<<oceny, fig.cap="Podpis">>=
 xseq <- seq(0, 10, length=100)
 scorn <- dnorm(xseq,
 	       mean=mean(users.scored$stats_mean_score, na.rm=TRUE),
@@ -100,22 +119,32 @@ scorn <- dnorm(xseq,
 		     na.rm=TRUE))
 hists <- hist(users.scored$stats_mean_score, plot=FALSE, breaks=40)
 
+xseq.raw <- seq(0, 10, length=100)
+scorn.raw <- dnorm(xseq,
+	       mean=mean(users.raw.scored$stats_mean_score, na.rm=TRUE),
+	       sd=sd(users.raw.scored$stats_mean_score,
+		     na.rm=TRUE))
+hists.raw <- hist(users.raw.scored$stats_mean_score, plot=FALSE, breaks=40)
+
 ggplot() +
-    geom_bar(aes(hists$mids, hists$density), stat='identity') +
-    geom_line(aes(xseq, scorn), col="red") +
+    geom_bar(aes(hists$mids, hists$density, colour="Rozkład (filt.)"),
+	     stat='identity', alpha=0.5) +
+    geom_bar(aes(hists.raw$mids, hists.raw$density, colour="Rozkład"),
+	     stat='identity', alpha=0.5) +
+    geom_line(aes(xseq, scorn, colour="Dopasowanie (filt.)")) +
+    geom_line(aes(xseq.raw, scorn.raw, colour="Dopasowanie")) +
     scale_x_continuous(name="Ocena") +
     scale_y_continuous(name="Prawdop")
 @
 
-<<dates, fig.cap="Podpis">>=
-library(ggplot2)
-xseq <- seq(min(users$birth_date, na.rm=TRUE),
-	    max(users$birth_date, na.rm=TRUE),
+<<daty, fig.cap="Podpis">>=
+xseq <- seq(min(users.scored$birth_date, na.rm=TRUE),
+	    max(users.scored$birth_date, na.rm=TRUE),
 	    length=100)
 scorn <- dnorm(as.numeric(xseq),
-	       mean=mean(as.numeric(users$birth_date), na.rm=TRUE),
-	       sd=sd(as.numeric(users$birth_date, na.rm=TRUE)))
-hists <- hist(users$birth_date, plot=FALSE,
+	       mean=mean(as.numeric(users.scored$birth_date), na.rm=TRUE),
+	       sd=sd(as.numeric(users.scored$birth_date, na.rm=TRUE)))
+hists <- hist(users.scored$birth_date, plot=FALSE,
 	      breaks='years')
 
 ggplot() +
@@ -126,6 +155,24 @@ ggplot() +
     scale_y_continuous(name="Prawdop")
 @
 
+<<daty, fig.cap="Podpis">>=
+fitt <- fitdistr(users.scored$user_completed, 'exponential')
+
+bins <- 50
+
+xseq <- seq(min(users.scored$user_completed, na.rm=TRUE),
+	    max(users.scored$user_completed, na.rm=TRUE),
+	    length=max(users.scored$user_completed, na.rm=TRUE)/bins)
+
+scorn <- dexp(xseq, rate=fitt$estimate)
+
+ggplot() +
+    geom_histogram(aes(x=users.scored$user_completed,
+		       y=..count../sum(..count..)), binwidth=bins) +
+    geom_line(aes(xseq, scorn*bins), col="red") +
+    scale_x_continuous(name="Komplecja") +
+    scale_y_continuous(name="Prawdop")
+@
 % Bibliografia
 
 \end{document}
