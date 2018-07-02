@@ -35,6 +35,7 @@ Sys.setlocale(category = 'LC_ALL','pl_PL.UTF-8')
 Sys.setenv(LANG="PL")
 Sys.setenv(LC_ALL="pl_PL.UTF-8")
 
+options(knitr.kable.NA = "--")
 @ 
 
 <<tikzSettings>>=
@@ -84,6 +85,18 @@ users.scored <- users.scored[grep(paste(countries,collapse="|"), users.scored$lo
 users.scored$location <- gsub(paste0('^.*(',paste(countries,collapse="|"),').*$'), "\\1", users.scored$location, ignore.case=TRUE)
 
 users.scored$location <- tolower(users.scored$location)
+users.scored$location <- plyr::mapvalues(users.scored$location,
+					 from=tolower(countries),
+					 to=c("Austria",
+					      "Czechy",
+					      "Niemcy",
+					      "Węgry",
+					      "Liechtenstein",
+					      "Polska",
+					      "Słowacja",
+					      "Szwajcaria"))
+
+
 #users.scored <- users.scored[users.scored$location == "poland",]
 #users.scored <- users.scored[users.scored$stats_mean_score < 9.82 &
 			     #users.scored$stats_mean_score > 5.4,]
@@ -107,6 +120,7 @@ library(nortest)
 library(Hmisc)
 library(fitdistrplus)
 options(knitr.table.format = "latex")
+
 @
 
 
@@ -132,12 +146,20 @@ których wiedza pozwoli udoskonalić ten serwis, w szczególności system
 oceniania, ale zrozumieć jak działają elementy ludzkiej psychiki odpowiedzialne
 za ocenianie odebranej rozrywki.
 \section{Cel}
+Celem tych badań jest analiza rozkładów badanych danych, w szczególności:
+ilości obejrznych seriali, daty urodzenia, płci, kraju pochodzenia, oraz ocena
+wpływu tych czynników na średnią ocene użytkownika.
 \section{Badania}
 <<Testy>>=
 bdate.num <- as.numeric(bdate)
-score.pars <- descdist(score, graph=FALSE)
-bdate.pars <- descdist(bdate.num, graph=FALSE)
-shows.pars <- descdist(shows, graph=FALSE)
+score.pars <- as.table(round(unlist(descdist(score, graph=FALSE)[3:7]),2))
+rownames(score.pars) <- c("Mediana", "Średnia", "Odchylenie std.", "Skośność", "Kurtoza")
+
+bdate.pars <- as.table(round(unlist(descdist(bdate.num, graph=FALSE)[3:7]),2))
+rownames(bdate.pars) <- c("Mediana", "Średnia", "Odchylenie std.", "Skośność", "Kurtoza")
+
+shows.pars <- as.table(round(unlist(descdist(shows, graph=FALSE)[3:7]),2))
+rownames(shows.pars) <- c("Mediana", "Średnia", "Odchylenie std.", "Skośność", "Kurtoza")
 
 score.fit <- fitdist(score, 'logis')
 bdate.fit <- fitdist(bdate.num, 'logis')
@@ -159,11 +181,37 @@ shows.fitp <- 1/6*exp(-CramerVonMisesTwoSamples(shows, rgamma(size,
 
 bdate.cor <- cor.test(bdate.num, score)
 shows.cor <- cor.test(shows, score)
+
+gender.lev <- car::leveneTest(stats_mean_score~gender, users.scored)
+location.lev <- car::leveneTest(stats_mean_score~as.factor(location), users.scored)
+
+gender.kw <- kruskal.test(stats_mean_score~gender, users.scored)
+location.kw <- kruskal.test(stats_mean_score~as.factor(location), users.scored)
+
+location.umw = pairwise.wilcox.test(score, country, p.adjust.method="none")
 @
 
+Na podstawie parametrów rozkładu średniej oceny użytkownika (tab.
+\ref{tab:score_pars}), oraz wyglądu wylresu tego rozkładu (rys.
+\ref{fig:oceny}), uznano że najbardziej podobnym rozkładem jest rozkład
+logistyczny. Dopasowano rozkład uzyskując parametry: położenie wynoszące
+\num{\Sexpr{round(score.fit$estimate[1],2)}} i skalę wynoszącą
+\num{\Sexpr{round(score.fit$estimate[2],2)}}. Na rysunku \ref{fig:oceny} jest
+zaznaczony ten rozkład czerwoną linią, natomiast rysunek \ref{fig:qq_shows}
+przedstawia wykres kwantyl-kwantyl względem tego rozkładu. W celu sprawdzenia
+dokładności dopasowania  przeprowadzono test Craméra-von Misesa, uzyskując
+wartość parametru $p$ wynoszącą \num{\Sexpr{round(score.fitp, 2)}}, co nie daje
+podstaw do odrzucenia hipotezy że ten rozkład opisuje tę próbę, przy przyjętym
+poziomie istotności $\alpha = 0.05$.
 
+\begin{table}[H]
+    \centering
+    \caption{Parametry rozkładu średniej oceny użytkownika}
+    \Sexpr{kable(score.pars, col.names=c("Parametr", "Wartość"), booktabs=TRUE)}
+    \label{tab:score_pars}
+\end{table}
 
-<<oceny, fig.cap="Podpis">>=
+<<oceny, fig.cap="Rozkład średniej oceny z estymowanym rozkładem">>=
 bins <- 0.13
 
 xseq <- seq(min(score), max(score),
@@ -176,19 +224,28 @@ ggplot() +
 		       y=..count../sum(..count..)),
 		   binwidth=bins) +
     geom_line(aes(xseq, scorn*bins), col="red") +
-    scale_x_continuous(name="Komplecja") +
-    scale_y_continuous(name="Prawdop")
+    scale_x_continuous(name="Średnia ocena") +
+    scale_y_continuous(name="Częstotliwość występowania")
 @
 
-<<qq_oceny, fig.cap="Podpis">>=
+<<qq_oceny, fig.cap="Wykres K-K średniej oceny względem estymowanego rozkładu">>=
 ggplot(users.scored.sample,
        aes(sample=stats_mean_score)) +
     stat_qq(distribution=qlogis, dparams=as.list(score.fit$estimate)) +
-    stat_qq_line(distribution=qlogis, dparams=as.list(score.fit$estimate))
+    stat_qq_line(distribution=qlogis, dparams=as.list(score.fit$estimate)) +
+    scale_x_continuous(name="Wartości teoretyczne") +
+    scale_y_continuous(name="Wartości z próby")
 
 @
 
-<<daty, fig.cap="Podpis">>=
+\begin{table}[H]
+    \centering
+    \caption{Parametry rozkładu daty urzodzenia użytkownika}
+    \Sexpr{kable(bdate.pars, col.names=c("Parametr", "Wartość"), booktabs=TRUE)}
+    \label{tab:bdate_pars}
+\end{table}
+
+<<daty, fig.cap="Rozkład daty urodzenia z estymowanym rozkładem">>=
 bins <- 200
 
 xseq <- seq(min(bdate), max(bdate),
@@ -204,11 +261,13 @@ ggplot() +
     scale_y_continuous(name="Częstotliwość występowania")
 @
 
-<<qq_daty, fig.cap="Podpis">>=
+<<qq_daty, fig.cap="Wykres K-K daty urodzenia względem estymowanego rozkładu">>=
 ggplot(users.scored.sample,
        aes(sample=as.numeric(birth_date))) +
     stat_qq(distribution=qlogis, dparams=as.list(score.fit$estimate)) +
-    stat_qq_line(distribution=qlogis, dparams=as.list(score.fit$estimate))
+    stat_qq_line(distribution=qlogis, dparams=as.list(score.fit$estimate)) +
+    scale_x_continuous(name="Wartości teoretyczne") +
+    scale_y_continuous(name="Wartości z próby")
 @
 
 <<watched, fig.cap="Podpis">>=
@@ -269,6 +328,13 @@ ggplot(users.scored, aes(x=location, y=stats_mean_score)) +
     scale_x_discrete(name="Komplecja") +
     scale_y_continuous(name="Prawdop")
 @
+
+\begin{table}[H]
+    \centering
+    \caption{Wyniki testu U Manna-Whitneya}
+    \Sexpr{kable(round(location.umw$p.value[,1:4],2), booktabs=TRUE)}
+    \Sexpr{kable(round(location.umw$p.value[,4:7],2), booktabs=TRUE)}
+\end{table}
 % Bibliografia
 
 \end{document}
