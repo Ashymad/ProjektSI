@@ -76,25 +76,27 @@ options(tikzMetricsDictionary="~/R/tikzMetrics") # speeds tikz up
 
 <<Data>>=
 load("data/data.Rdata")
-users.scored <- users.scored[!is.na(users.scored$user_completed),]
-countries <- read.csv("data/country-keyword-list.csv", fileEncoding="UTF-16",
-		      header=FALSE)
-users.scored <- users.scored[grep(paste(countries[,1],collapse="|"), users.scored$location, ignore.case=TRUE),]
-users.scored$location <- gsub(paste0('^.*(',paste(countries[,1],collapse="|"),').*$'), "\\1", users.scored$location, ignore.case=TRUE)
+#countries <- read.csv("data/country-keyword-list.csv", fileEncoding="UTF-16",
+		      #header=FALSE)
+countries <- c("Austria", "Czech Republic", "Germany", "Hungary",
+	       "Liechtenstein", "Poland", "Slovakia", "Switzerland")
+users.scored <- users.scored[grep(paste(countries,collapse="|"), users.scored$location, ignore.case=TRUE),]
+users.scored$location <- gsub(paste0('^.*(',paste(countries,collapse="|"),').*$'), "\\1", users.scored$location, ignore.case=TRUE)
 
 users.scored$location <- tolower(users.scored$location)
-users.scored <- users.scored[users.scored$location == "poland",]
-users.scored <- users.scored[users.scored$stats_mean_score < 9.82 &
-			     users.scored$stats_mean_score > 5.4,]
+#users.scored <- users.scored[users.scored$location == "poland",]
+#users.scored <- users.scored[users.scored$stats_mean_score < 9.82 &
+			     #users.scored$stats_mean_score > 5.4,]
 
+users.scored <- users.scored[users.scored$user_completed > 0,]
 score <- users.scored$stats_mean_score
 bdate <- users.scored$birth_date
 shows <- users.scored$user_completed
 sex <- users.scored$gender
 country <- users.scored$location
-
-cities = read.table("data/miasta_polski_teryt.csv", sep=";", header=TRUE,
-		    fileEncoding="Windows-1250")
+users.scored.sample <- users.scored[sample(length(users.scored[[1]]), 2000),]
+#cities = read.table("data/miasta_polski_teryt.csv", sep=";", header=TRUE,
+#		    fileEncoding="Windows-1250")
 @
 
 <<Biblioteki>>=
@@ -108,27 +110,66 @@ options(knitr.table.format = "latex")
 @
 
 
-\title{Analiza oceniania japońskich seriali animowanych przez polskich
-użytkowników serwisu MyAnimeList}
+\title{Analiza oceniania japońskich seriali animowanych przez
+użytkowników serwisu MyAnimeList w Europie Centralnej}
 \author{Szymon Mikulicz}
 \onehalfspacing
 \begin{document}
 \maketitle
 \section{Abstrakt}
 \section{Wstęp}
+W czasach wpółczesnych, gdy dostęp do internetu jest powszechny, oglądanie
+seriali jest rozrywką którą wielu dzieli z podobnymi sobie fanami, poprzez
+gromadzenie się na internetowych serwisach poświęconych poszczególnym serialom,
+czy też ich grupom połączonym poprzez kraj pochodzenia, czy też tematykę.
+Jednym z takich właśnie serwisów jest MyAnimeList, który pozwala fanom
+japońskiej animacji zapisywać listę już obejrzanych seriali, znajdywać podobne,
+czy też udzielać się na forum. Jednak przedmiotem badań w tej pracy jest inna
+funkcja tego serwisu, mianowicie możliwość wystawiania oceny posczególnym
+serialom przez użytkowników. Poznanie sposobu w jaki użytkownicy oceniają
+seriale i co ma na to wpływ pozwala nie tylko poznać pewne zależności, o
+których wiedza pozwoli udoskonalić ten serwis, w szczególności system
+oceniania, ale zrozumieć jak działają elementy ludzkiej psychiki odpowiedzialne
+za ocenianie odebranej rozrywki.
 \section{Cel}
 \section{Badania}
+<<Testy>>=
+bdate.num <- as.numeric(bdate)
+score.pars <- descdist(score, graph=FALSE)
+bdate.pars <- descdist(bdate.num, graph=FALSE)
+shows.pars <- descdist(shows, graph=FALSE)
+
+score.fit <- fitdist(score, 'logis')
+bdate.fit <- fitdist(bdate.num, 'logis')
+shows.fit <- fitdist(shows, 'gamma')
+
+size = 100000
+
+score.fitp <- 1/6*exp(-CramerVonMisesTwoSamples(score, rlogis(size,
+							      score.fit$estimate[1],
+							      score.fit$estimate[2])))
+
+bdate.fitp <- 1/6*exp(-CramerVonMisesTwoSamples(bdate.num, rlogis(size,
+								  bdate.fit$estimate[1],
+								  bdate.fit$estimate[2])))
+
+shows.fitp <- 1/6*exp(-CramerVonMisesTwoSamples(shows, rgamma(size,
+							      shows.fit$estimate[1],
+							      shows.fit$estimate[2])))
+
+bdate.cor <- cor.test(bdate.num, score)
+shows.cor <- cor.test(shows, score)
+@
+
 
 
 <<oceny, fig.cap="Podpis">>=
-bins <- 0.15
-
-score.fit <- fitdist(score, 'norm')
+bins <- 0.13
 
 xseq <- seq(min(score), max(score),
 	    length=max(score)/bins)
 
-scorn <- dnorm(xseq, score.fit$estimate[1], score.fit$estimate[2])
+scorn <- dlogis(xseq, score.fit$estimate[1], score.fit$estimate[2])
 
 ggplot() +
     geom_histogram(aes(x=score,
@@ -140,46 +181,44 @@ ggplot() +
 @
 
 <<qq_oceny, fig.cap="Podpis">>=
-ggplot(users.scored[sample(length(users.scored[[1]]), 1000),],
+ggplot(users.scored.sample,
        aes(sample=stats_mean_score)) +
-    stat_qq() + stat_qq_line()
+    stat_qq(distribution=qlogis, dparams=as.list(score.fit$estimate)) +
+    stat_qq_line(distribution=qlogis, dparams=as.list(score.fit$estimate))
+
 @
 
 <<daty, fig.cap="Podpis">>=
-bdate.fit <- fitdistr(as.numeric(bdate), 'normal')
-
 bins <- 200
 
 xseq <- seq(min(bdate), max(bdate),
 	    length=max(as.numeric(bdate))/bins)
 
-scorn <- dnorm(xseq, mean=bdate.fit$estimate[1], sd=bdate.fit$estimate[2])
+scorn <- dlogis(xseq, bdate.fit$estimate[1], bdate.fit$estimate[2])
 
 ggplot() +
     geom_histogram(aes(x=bdate,
 		       y=..count../sum(..count..)), binwidth=bins) +
     geom_line(aes(xseq, as.numeric(scorn)*bins), col="red") +
     scale_x_date(name="Rok urodzenia") +
-    scale_y_continuous(name="Cz\\k{e}stotliwo\\'s\\'c wyst\\k{e}powania")
+    scale_y_continuous(name="Częstotliwość występowania")
 @
 
 <<qq_daty, fig.cap="Podpis">>=
-ggplot(users.scored[sample(length(users.scored[[1]]), 1000),],
+ggplot(users.scored.sample,
        aes(sample=as.numeric(birth_date))) +
-    stat_qq() + stat_qq_line()
-
+    stat_qq(distribution=qlogis, dparams=as.list(score.fit$estimate)) +
+    stat_qq_line(distribution=qlogis, dparams=as.list(score.fit$estimate))
 @
 
 <<watched, fig.cap="Podpis">>=
-shows.fit <- fitdistr(shows[shows > 1], 'lognormal')
-
 bins <- 10
 
 xseq <- seq(min(shows),
 	    max(shows),
 	    length=max(shows)/bins)
 
-scorn <- dlnorm(xseq, shows.fit$estimate[1], shows.fit$estimate[2])
+scorn <- dgamma(xseq, shows.fit$estimate[1], shows.fit$estimate[2])
 
 ggplot() +
     geom_histogram(aes(x=shows,
@@ -191,17 +230,16 @@ ggplot() +
 @
 
 <<qq_shows, fig.cap="Podpis">>=
-ggplot(users.scored[sample(length(users.scored[[1]]), 1000),],
+ggplot(users.scored.sample,
        aes(sample=user_completed, group=1)) +
-    stat_qq(distribution=qlnorm,
+    stat_qq(distribution=qgamma,
 	    dparams=as.list(shows.fit$estimate)) +
-    stat_qq_line(distribution=qlnorm,
+    stat_qq_line(distribution=qgamma,
 		 dparams=as.list(shows.fit$estimate))
-
 @
 
 <<bdate_score, fig.cap="Podpis">>=
-ggplot(users.scored, aes(x=birth_date, y=stats_mean_score)) +
+ggplot(users.scored.sample, aes(x=birth_date, y=stats_mean_score)) +
     geom_point() +
     geom_smooth(method='lm', col='red') +
     scale_x_date(name="Komplecja") +
@@ -209,10 +247,10 @@ ggplot(users.scored, aes(x=birth_date, y=stats_mean_score)) +
 @
 
 <<shows_score, fig.cap="Podpis">>=
-ggplot(users.scored, aes(x=shows, y=stats_mean_score)) +
+ggplot(users.scored.sample, aes(x=user_completed, y=stats_mean_score)) +
     geom_point() +
     geom_smooth(method='lm', col='red') +
-    scale_x_continuous(name="Komplecja", limits=c(0,1000)) +
+    scale_x_continuous(name="Komplecja", limits=c(0,2000)) +
     scale_y_continuous(name="Prawdop")
 @
 
@@ -223,14 +261,14 @@ ggplot(users.scored, aes(x=factor(gender), y=stats_mean_score)) +
     scale_y_continuous(name="Prawdop")
 @
 
-%
-%\begin{landscape}
-%<<country_score, fig.width=15, fig.height=7.5, fig.cap="Podpis">>==
-%ggplot(users.scored, aes(x=location, y=stats_mean_score)) +
-%    geom_boxplot(coef=6) +
-%    theme(axis.text.x = element_text(angle = 60, hjust=1, size=5))
-%@
-%\end{landscape}
+
+<<country_score, fig.cap="Podpis">>==
+ggplot(users.scored, aes(x=location, y=stats_mean_score)) +
+    geom_boxplot(coef=6) +
+    theme(axis.text.x = element_text(angle = 60, hjust=1)) +
+    scale_x_discrete(name="Komplecja") +
+    scale_y_continuous(name="Prawdop")
+@
 % Bibliografia
 
 \end{document}
