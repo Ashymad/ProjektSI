@@ -19,13 +19,14 @@
 \usepackage{mathtools}
 \usepackage{setspace}
 \usepackage{fontspec,xunicode}
+\usepackage{rotating}
+\usepackage{pdflscape}
 \usepackage{booktabs}
 \usepackage{tikz}
 \setmainfont{Noto Serif}
 
 <<Opcje globalne, include=FALSE>>=
 library(knitr)
-library(kableExtra)
 
 knitr::opts_chunk$set(echo=FALSE, warning=FALSE, message=FALSE)
 knitr::opts_knit$set(concordance = TRUE);
@@ -34,7 +35,6 @@ Sys.setlocale(category = 'LC_ALL','pl_PL.UTF-8')
 Sys.setenv(LANG="PL")
 Sys.setenv(LC_ALL="pl_PL.UTF-8")
 
-options(knitr.table.format = "latex")
 @ 
 
 <<tikzSettings>>=
@@ -54,7 +54,7 @@ knitr::opts_chunk$set(keep.source=TRUE,
                       cache=TRUE,
                       tidy=FALSE,
                       dev='tikz',
-                      external=FALSE,
+                      external=TRUE,
                       fig.align='center',
                       size='small')
 
@@ -70,27 +70,46 @@ options(tikzDefaultEngine = "xetex",
             )
         )
 
+options(tikzDocumentDeclaration = "\\documentclass[10pt]{standalone}\n")
 options(tikzMetricsDictionary="~/R/tikzMetrics") # speeds tikz up
 @ 
 
 <<Data>>=
-#users.raw <- read.csv('data/UserList.csv')
-#users <- read.csv("data/users_cleaned.csv")
-#users$birth_date <- as.Date(users$birth_date)
-#users.raw.scored <- users.raw[users.raw$stats_mean_score > 0,]
-#users.scored <- users[users$stats_mean_score > 0,]
-#save(users.raw, users, users.raw.scored, users.scored, file="data/data.Rdata")
 load("data/data.Rdata")
+users.scored <- users.scored[!is.na(users.scored$user_completed),]
+countries <- read.csv("data/country-keyword-list.csv", fileEncoding="UTF-16",
+		      header=FALSE)
+users.scored <- users.scored[grep(paste(countries[,1],collapse="|"), users.scored$location, ignore.case=TRUE),]
+users.scored$location <- gsub(paste0('^.*(',paste(countries[,1],collapse="|"),').*$'), "\\1", users.scored$location, ignore.case=TRUE)
+
+users.scored$location <- tolower(users.scored$location)
+users.scored <- users.scored[users.scored$location == "poland",]
+users.scored <- users.scored[users.scored$stats_mean_score < 9.82 &
+			     users.scored$stats_mean_score > 5.4,]
+
+score <- users.scored$stats_mean_score
+bdate <- users.scored$birth_date
+shows <- users.scored$user_completed
+sex <- users.scored$gender
+country <- users.scored$location
+
+cities = read.table("data/miasta_polski_teryt.csv", sep=";", header=TRUE,
+		    fileEncoding="Windows-1250")
 @
 
-<<Obliczenia>>=
+<<Biblioteki>>=
 library(ggplot2)
+library(kableExtra)
 library(MASS)
+library(nortest)
+library(Hmisc)
+library(fitdistrplus)
+options(knitr.table.format = "latex")
 @
 
 
-\title{Analiza oceniania japońskich seriali animowanych przez użytkowników
-serwisu MyAnimeList}
+\title{Analiza oceniania japońskich seriali animowanych przez polskich
+użytkowników serwisu MyAnimeList}
 \author{Szymon Mikulicz}
 \onehalfspacing
 \begin{document}
@@ -100,79 +119,118 @@ serwisu MyAnimeList}
 \section{Cel}
 \section{Badania}
 
-Jako że, wybrana próba jest wyłącznie podgrupą wszystkich użytkowników,
-mianowicię tą częścią, która podała swoją datę urodzenia, kraj pochodzenia orza
-płeć, z pominięciem użytkoników z wartościami potencjalnie fałszywymi (typu
-data urodzenia z przed stu laty, lub w przyszłości), przeprowadzono porównanie
-parametrów rozkładu średniej wystawionych ocen pomiędzy wszystkim
-użytkownikami, a uzytkownikami przefiltrowanymi.
-
-Jednak najpierw sprawdzono normalność rozkładów badanych, mianowinie rozkładu:
-wystawionych ocen (przefiltrowanych i nie), daty urodzenia i liczby obejrzanych
-seriali.
 
 <<oceny, fig.cap="Podpis">>=
-xseq <- seq(0, 10, length=100)
-scorn <- dnorm(xseq,
-	       mean=mean(users.scored$stats_mean_score, na.rm=TRUE),
-	       sd=sd(users.scored$stats_mean_score,
-		     na.rm=TRUE))
-hists <- hist(users.scored$stats_mean_score, plot=FALSE, breaks=40)
+bins <- 0.15
 
-xseq.raw <- seq(0, 10, length=100)
-scorn.raw <- dnorm(xseq,
-	       mean=mean(users.raw.scored$stats_mean_score, na.rm=TRUE),
-	       sd=sd(users.raw.scored$stats_mean_score,
-		     na.rm=TRUE))
-hists.raw <- hist(users.raw.scored$stats_mean_score, plot=FALSE, breaks=40)
+score.fit <- fitdist(score, 'norm')
+
+xseq <- seq(min(score), max(score),
+	    length=max(score)/bins)
+
+scorn <- dnorm(xseq, score.fit$estimate[1], score.fit$estimate[2])
 
 ggplot() +
-    geom_bar(aes(hists$mids, hists$density, colour="Rozkład (filt.)"),
-	     stat='identity', alpha=0.5) +
-    geom_bar(aes(hists.raw$mids, hists.raw$density, colour="Rozkład"),
-	     stat='identity', alpha=0.5) +
-    geom_line(aes(xseq, scorn, colour="Dopasowanie (filt.)")) +
-    geom_line(aes(xseq.raw, scorn.raw, colour="Dopasowanie")) +
-    scale_x_continuous(name="Ocena") +
-    scale_y_continuous(name="Prawdop")
-@
-
-<<daty, fig.cap="Podpis">>=
-xseq <- seq(min(users.scored$birth_date, na.rm=TRUE),
-	    max(users.scored$birth_date, na.rm=TRUE),
-	    length=100)
-scorn <- dnorm(as.numeric(xseq),
-	       mean=mean(as.numeric(users.scored$birth_date), na.rm=TRUE),
-	       sd=sd(as.numeric(users.scored$birth_date, na.rm=TRUE)))
-hists <- hist(users.scored$birth_date, plot=FALSE,
-	      breaks='years')
-
-ggplot() +
-    geom_bar(aes(as.Date(hists$mids, origin="1970-01-01"),
-		 hists$density), stat='identity') +
-    geom_line(aes(xseq, scorn), col="red") +
-    scale_x_date(name="Data") +
-    scale_y_continuous(name="Prawdop")
-@
-
-<<daty, fig.cap="Podpis">>=
-fitt <- fitdistr(users.scored$user_completed, 'exponential')
-
-bins <- 50
-
-xseq <- seq(min(users.scored$user_completed, na.rm=TRUE),
-	    max(users.scored$user_completed, na.rm=TRUE),
-	    length=max(users.scored$user_completed, na.rm=TRUE)/bins)
-
-scorn <- dexp(xseq, rate=fitt$estimate)
-
-ggplot() +
-    geom_histogram(aes(x=users.scored$user_completed,
-		       y=..count../sum(..count..)), binwidth=bins) +
+    geom_histogram(aes(x=score,
+		       y=..count../sum(..count..)),
+		   binwidth=bins) +
     geom_line(aes(xseq, scorn*bins), col="red") +
     scale_x_continuous(name="Komplecja") +
     scale_y_continuous(name="Prawdop")
 @
+
+<<qq_oceny, fig.cap="Podpis">>=
+ggplot(users.scored[sample(length(users.scored[[1]]), 1000),],
+       aes(sample=stats_mean_score)) +
+    stat_qq() + stat_qq_line()
+@
+
+<<daty, fig.cap="Podpis">>=
+bdate.fit <- fitdistr(as.numeric(bdate), 'normal')
+
+bins <- 200
+
+xseq <- seq(min(bdate), max(bdate),
+	    length=max(as.numeric(bdate))/bins)
+
+scorn <- dnorm(xseq, mean=bdate.fit$estimate[1], sd=bdate.fit$estimate[2])
+
+ggplot() +
+    geom_histogram(aes(x=bdate,
+		       y=..count../sum(..count..)), binwidth=bins) +
+    geom_line(aes(xseq, as.numeric(scorn)*bins), col="red") +
+    scale_x_date(name="Rok urodzenia") +
+    scale_y_continuous(name="Cz\\k{e}stotliwo\\'s\\'c wyst\\k{e}powania")
+@
+
+<<qq_daty, fig.cap="Podpis">>=
+ggplot(users.scored[sample(length(users.scored[[1]]), 1000),],
+       aes(sample=as.numeric(birth_date))) +
+    stat_qq() + stat_qq_line()
+
+@
+
+<<watched, fig.cap="Podpis">>=
+shows.fit <- fitdistr(shows[shows > 1], 'lognormal')
+
+bins <- 10
+
+xseq <- seq(min(shows),
+	    max(shows),
+	    length=max(shows)/bins)
+
+scorn <- dlnorm(xseq, shows.fit$estimate[1], shows.fit$estimate[2])
+
+ggplot() +
+    geom_histogram(aes(x=shows,
+		       y=..count../sum(..count..)),
+		   binwidth=bins) +
+    geom_line(aes(xseq, scorn*bins), col="red") +
+    scale_x_continuous(name="Komplecja", limits=c(NA, 1000)) +
+    scale_y_continuous(name="Prawdop")
+@
+
+<<qq_shows, fig.cap="Podpis">>=
+ggplot(users.scored[sample(length(users.scored[[1]]), 1000),],
+       aes(sample=user_completed, group=1)) +
+    stat_qq(distribution=qlnorm,
+	    dparams=as.list(shows.fit$estimate)) +
+    stat_qq_line(distribution=qlnorm,
+		 dparams=as.list(shows.fit$estimate))
+
+@
+
+<<bdate_score, fig.cap="Podpis">>=
+ggplot(users.scored, aes(x=birth_date, y=stats_mean_score)) +
+    geom_point() +
+    geom_smooth(method='lm', col='red') +
+    scale_x_date(name="Komplecja") +
+    scale_y_continuous(name="Prawdop")
+@
+
+<<shows_score, fig.cap="Podpis">>=
+ggplot(users.scored, aes(x=shows, y=stats_mean_score)) +
+    geom_point() +
+    geom_smooth(method='lm', col='red') +
+    scale_x_continuous(name="Komplecja", limits=c(0,1000)) +
+    scale_y_continuous(name="Prawdop")
+@
+
+<<sex_score, fig.cap="Podpis">>=
+ggplot(users.scored, aes(x=factor(gender), y=stats_mean_score)) +
+    geom_boxplot(coef=6) +
+    scale_x_discrete(name="Komplecja") +
+    scale_y_continuous(name="Prawdop")
+@
+
+%
+%\begin{landscape}
+%<<country_score, fig.width=15, fig.height=7.5, fig.cap="Podpis">>==
+%ggplot(users.scored, aes(x=location, y=stats_mean_score)) +
+%    geom_boxplot(coef=6) +
+%    theme(axis.text.x = element_text(angle = 60, hjust=1, size=5))
+%@
+%\end{landscape}
 % Bibliografia
 
 \end{document}
