@@ -5,6 +5,7 @@
 \usepackage{polski}
 \frenchspacing
 
+\usepackage[hidelinks]{hyperref}
 \usepackage{enumerate}
 \usepackage{csquotes}
 \DeclareQuoteAlias{croatian}{polish}
@@ -23,6 +24,16 @@
 \usepackage{booktabs}
 \usepackage{tikz}
 \setmainfont{Noto Serif}
+
+\usepackage[%
+style=numeric,
+sorting=none,
+language=autobib,
+autolang=other,
+backend=biber,
+]{biblatex}
+
+\addbibresource{stats.bib}
 
 <<Opcje globalne, include=FALSE>>=
 library(knitr)
@@ -139,13 +150,14 @@ rozkładami logistycznymi o różnych parametrach, jednak nie udało się znale�
 rozkładu opisującego liczbę obejrzanych seriali w stopniu istotnym
 statystycznie, Następnie zbadano korelację pomiędzy datą urodzenia a średnią
 oceną oraz pomiędzy liczbą obejrzanych seriali a średnią oceną. Nie znaleziono
-istotnej statystycznie zależności pomiędzy liczba obejrzanych seriali a średnią
-oceną, natomiast znaleziono istotnie statystyczną zależność pomiędzy datą
-urodzenia a średnią oceną, z czego wynikło że osoby młodsze w bardzo niewielkim
-stopniu wystawiają wyższe oceny. Jako ostatnią wykonano analizę różnic pomiędzy
-rozkładami dla każdej z płci, z czego wynikł brak zależności oceny od płci oraz
-analizę różnic pomiędzy rozkładami dla każdego miasta Europy Centralnej, z której
-wynikło istnienie istotnych statystycznie różnic pomiędzy ocenami w niektórych
+istotnej statystycznie zależności pomiędzy datą urodzenia a średnią oceną,
+natomiast znaleziono istotnie statystyczną zależność pomiędzy liczbą
+obejrzanych seriali a~średnią oceną, z czego wynikło że osoby które obejrzały
+dużo seriali są bardziej prawdopodobne mieć niską średnią wystawionych ocen
+Jako ostatnią wykonano analizę różnic pomiędzy rozkładami dla każdej z płci, z
+czego wynikł brak zależności oceny od płci oraz analizę różnic pomiędzy
+rozkładami dla każdego miasta Europy Centralnej, z której wynikło istnienie
+istotnych statystycznie różnic pomiędzy ocenami w niektórych
 państwach.
 \section{Wstęp}
 W czasach współczesnych, gdy dostęp do internetu jest powszechny, oglądanie
@@ -201,6 +213,10 @@ shows.fitp <- 1/6*exp(-CramerVonMisesTwoSamples(shows, rgamma(size,
 
 bdate.cor <- cor.test(bdate.num, score)
 shows.cor <- cor.test(shows, score)
+shows.lm  <- summary(lm(stats_mean_score~user_completed, data=users.scored))
+shows.lm.tab <- as.table(round(c(shows.lm$coefficients[1:2], shows.lm$r.squared, shows.lm$sigma),4))
+rownames(shows.lm.tab) <- c("$b_0$", "$b_1$", "Współczynnik determinacji", "Odchylanie std. reszt.")
+
 
 gender.lev <- car::leveneTest(stats_mean_score~gender, users.scored)
 location.lev <- car::leveneTest(stats_mean_score~as.factor(location), users.scored)
@@ -350,13 +366,14 @@ ggplot(users.scored.sample,
 \subsection{Badanie korelacji}
 Najpierw zbadano zależność pomiędzy datą urodzenia a średnią oceną, która jest
 przedstawiona na rysunku \ref{fig:bdate_score}, na którym czerwoną linią
-zaznaczona jest prosta regresji liniowej. Obliczono korelację pomiędzy danymi
-uzyskując wartość \num{\Sexpr{round(bdate.cor$estimate,3)}}, co wskazuje na
-bardzo nikłą zależność rosnącą. Przeprowadzono test t-Studenta sprawdzający
-otrzymany wynik, otrzymując wartość $p$ wynoszącą
-\num{\Sexpr{round(bdate.cor$p.value,2)}}. Ta wartość wskazuje na brak podstaw
-do odrzucenia hipotezy o znaczeniu tej zależności, toteż można stwierdzić, że
-młodsze osoby oceniają minimalnie wyżej niż starsze.
+zaznaczona jest prosta regresji liniowej \cite{chambers:1992:chap4}. Obliczono
+korelację pomiędzy danymi uzyskując wartość
+\num{\Sexpr{round(bdate.cor$estimate,3)}}, co wskazuje na bardzo nikłą
+zależność rosnącą. Przeprowadzono test t-Studenta sprawdzający hipotezę o braku
+zależności pomiędzy badanymi zmiennymi, otrzymując wartość $p$ wynoszącą
+\num{\Sexpr{round(bdate.cor$p.value,2)}}, co wskazuje na brak podstaw do
+odrzucenia tej hipotezy.  Oznacza to że nie można stwierdzić że istnieje
+zależność pomiędzy wiekiem użytkownika a średnią przez niego wystawionych ocen.
 
 <<bdate_score, fig.cap="Zależność średniej oceny od urodzin użytkownika">>=
 ggplot(users.scored.sample, aes(x=birth_date, y=stats_mean_score)) +
@@ -369,11 +386,21 @@ ggplot(users.scored.sample, aes(x=birth_date, y=stats_mean_score)) +
 W kolejnym kroku zbadano korelację liczby obejrzanych seriali (rys.
 \ref{fig:shows_score}), która wyniosła
 \num{\Sexpr{round(shows.cor$estimate,2)}}, co oznacza zależność malejącą.
-Następnie przetestowano uzyskano wynik, otrzymując wartość $p$ wynoszącą
+Następnie przetestowano hipotezę o braku zależności, otrzymując wartość $p$ wynoszącą
 \num{\Sexpr{round(shows.cor$p.value,3)}}, co oznacza że istnieją podstawy do
-odrzucenia hipotezy o korelacji danych. Oznacza to że nie można powiedzieć, że
-występuje zależność pomiędzy liczbą obejrzanych seriali a średnią z
-wystawionych ocen.
+odrzucenia tej hipotezy. Można zatem stwierdzić, że istnieje istotna
+statystycznie zależność malejąca pomiędzy liczbą obejrzanych seriali, a średnią
+z wystawionych ocen. Parametry wyznaczonej funkcji regresji w postaci $y = b_0 + b_1x$
+przedstawia tablica \ref{tab:shows_lm}. Jak widać po niezwykle niskim
+współczynniku determinacji oraz wysokim odchyleniu, jak również po wykresie,
+wyznaczona funkcja w bardzo małym stopniu opisuje dane.
+
+\begin{table}[H]
+    \centering
+    \caption{Parametry rozkładu liczby obejrzanych seriali}
+    \Sexpr{kable(shows.lm.tab, col.names=c("Parametr", "Wartość"), booktabs=TRUE, escape=FALSE)}
+    \label{tab:shows_lm}
+\end{table}
 
 <<shows_score, fig.cap="Zależność średniej oceny od liczby obejrzanych seriali">>=
 ggplot(users.scored.sample, aes(x=user_completed, y=stats_mean_score)) +
@@ -386,17 +413,10 @@ ggplot(users.scored.sample, aes(x=user_completed, y=stats_mean_score)) +
 \subsection{Analiza wariancji}
 
 Ponieważ badane rozkłady nie są rozkładami normalnymi, nie przeprowadzono ANOVy,
-natomiast różnice zbadano wykorzystując test Kruskala-Wallisa. Aby móc z niego
+natomiast różnice zbadano wykorzystując test Kruskala-Wallisa
+\cite{hand+taylor:1987}. Aby móc z niego
 skorzystać jednak konieczne jest spełnienie warunku o jednorodności wariancji
-danych, co sprawdza test Levene'a. Rysunek \ref{fig:sex_score} przedstawia
-wykres ramka-wąsy rozkładów średniej wystawionych ocen dla płci, co było
-przedmiotem pierwszego zagadnienia. W wyniku testu Levene'a uzyskano wartość
-$p$ wynoszącą \num{\Sexpr{round(gender.lev[['Pr(>F)']][1],2)}}, co oznacza brak
-podstaw do odrzucenia hipotezy o jednorodności wariancji, toteż można wykonać
-test Kruskala-Wallisa. Uzyskano wynik wartości $p$ wynoszący
-\num{\Sexpr{round(gender.kw$p.value,2)}}, co oznacza brak podstaw do odrzucenia
-hipotezy o równości rozkładów dla każdej z płci. Oznacza to że płeć użytkownika
-nie wpływa na średnią z wystawionych ocen.
+danych, co sprawdza test Levene'a.
 
 <<sex_score, fig.cap="Rozkład oceny względem płci">>=
 ggplot(users.scored, aes(x=factor(gender), y=stats_mean_score)) +
@@ -413,6 +433,16 @@ ggplot(users.scored, aes(x=location, y=stats_mean_score)) +
     scale_y_continuous(name="Ocena")
 @
 
+Rysunek \ref{fig:sex_score} przedstawia
+wykres ramka-wąsy rozkładów średniej wystawionych ocen dla płci, co było
+przedmiotem pierwszego zagadnienia. W wyniku testu Levene'a uzyskano wartość
+$p$ wynoszącą \num{\Sexpr{round(gender.lev[['Pr(>F)']][1],2)}}, co oznacza brak
+podstaw do odrzucenia hipotezy o jednorodności wariancji, toteż można wykonać
+test Kruskala-Wallisa. Uzyskano wynik wartości $p$ wynoszący
+\num{\Sexpr{round(gender.kw$p.value,2)}}, co oznacza brak podstaw do odrzucenia
+hipotezy o równości rozkładów dla każdej z płci. Oznacza to że płeć użytkownika
+nie wpływa na średnią z wystawionych ocen.
+
 Kolejno zbadano rozkłady dla państw zamieszkanych przez użytkowników, co
 przedstawia rysunek \ref{fig:country_score}. W wyniku testu Levene'a uzyskano
 wartość $p$ wynosząca \num{\Sexpr{round(location.lev[['Pr(>F)']][1],2)}}, co
@@ -421,14 +451,6 @@ wynoszące \num{\Sexpr{round(location.kw$p.value,3)}}, co daje podstawy do
 odrzucenia hipotezy o równości rozkładów. Oznacza to, że średnie oceny dla
 państw posiadają istotne różnice.
 
-Aby zlokalizować występowanie różnic w zależności od państw przeprowadzono test
-U Manna-Whitneya, którego wyniki przedstawia tablica \ref{tab:umw}. Jak widać
-najwięcej istotnych statystycznie różnic występuje pomiędzy Słowacją a
-pozostałymi państwami (z wyjątkiem Liechtenstein), ponadto istnieją istotne
-różnice pomiędzy Węgrami a Niemcami, oraz pomiędzy Węgrami i Polakami. Wynika z~%
-tego że mieszkańcy Słowacji oceniają seriale z wyższymi ocenami niż pozostałe
-państwa Centralnej Europy, za wyjątkiem Liechensteinu, ponadto mieszkańcy Węgier
-oceniają wyżej niż mieszkańcy Polski i~wyżej niż mieszkańcy Niemiec.
 \begin{table}[H]
     \centering
     \caption{Wyniki testu U Manna-Whitneya}
@@ -436,6 +458,15 @@ oceniają wyżej niż mieszkańcy Polski i~wyżej niż mieszkańcy Niemiec.
     \Sexpr{kable(round(location.umw$p.value[,5:7],2), booktabs=TRUE)}
     \label{tab:umw}
 \end{table}
-% Bibliografia
 
+Aby zlokalizować występowanie różnic w zależności od państw przeprowadzono test
+U Manna-Whitneya, którego wyniki przedstawia tablica \ref{tab:umw}. Jak widać
+najwięcej istotnych statystycznie różnic występuje pomiędzy Słowacją a
+pozostałymi państwami (z wyjątkiem Liechtenstein), ponadto istnieją istotne
+różnice pomiędzy Węgrami a Niemcami, oraz pomiędzy Węgrami i Polską. Wynika z~%
+tego że mieszkańcy Słowacji oceniają seriale z wyższymi ocenami niż pozostałe
+państwa Centralnej Europy, za wyjątkiem Liechensteinu, ponadto mieszkańcy Węgier
+oceniają wyżej niż mieszkańcy Polski i~wyżej niż mieszkańcy Niemiec.
+% Bibliografia
+\printbibliography[title=Bibliografia]
 \end{document}
