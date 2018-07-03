@@ -19,8 +19,7 @@
 \usepackage{mathtools}
 \usepackage{setspace}
 \usepackage{fontspec,xunicode}
-\usepackage{rotating}
-\usepackage{pdflscape}
+\usepackage[shortcuts]{extdash}
 \usepackage{booktabs}
 \usepackage{tikz}
 \setmainfont{Noto Serif}
@@ -129,37 +128,58 @@ użytkowników serwisu MyAnimeList w Europie Centralnej}
 \author{Szymon Mikulicz}
 \onehalfspacing
 \begin{document}
+\emergencystretch 3em
 \maketitle
 \section{Abstrakt}
+W niniejszym opracowaniu zajęto się problematyką wpływu wybranych parametrów na
+średnią ocenę wystawioną dla obejrzanych seriali przez użytkowników serwisu
+MyAnimeList. Zbadano rozkłady parametrów: średniej oceny, daty urodzenia i
+liczby obejrzanych seriali, z czego wynikło że dwa pierwsze można opisać
+rozkładami logistycznymi o różnych parametrach, jednak nie udało się znaleźć
+rozkładu opisującego liczbę obejrzanych seriali w stopniu istotnym
+statystycznie, Następnie zbadano korelację pomiędzy datą urodzenia a średnią
+oceną oraz pomiędzy liczbą obejrzanych seriali a średnią oceną. Nie znaleziono
+istotnej statystycznie zależności pomiędzy liczba obejrzanych seriali a średnią
+oceną, natomiast znaleziono istotnie statystyczną zależność pomiędzy datą
+urodzenia a średnią oceną, z czego wynikło że osoby młodsze w bardzo niewielkim
+stopniu wystawiają wyższe oceny. Jako ostatnią wykonano analizę różnic pomiędzy
+rozkładami dla każdej z płci, z czego wynikł brak zależności oceny od płci oraz
+analizę różnic pomiędzy rozkładami dla każdego miasta Europy Centralnej, z której
+wynikło istnienie istotnych statystycznie różnic pomiędzy ocenami w niektórych
+państwach.
 \section{Wstęp}
-W czasach wpółczesnych, gdy dostęp do internetu jest powszechny, oglądanie
-seriali jest rozrywką którą wielu dzieli z podobnymi sobie fanami, poprzez
+W czasach współczesnych, gdy dostęp do internetu jest powszechny, oglądanie
+seriali jest rozrywką którą wielu dzieli z~podobnymi sobie fanami, poprzez
 gromadzenie się na internetowych serwisach poświęconych poszczególnym serialom,
 czy też ich grupom połączonym poprzez kraj pochodzenia, czy też tematykę.
 Jednym z takich właśnie serwisów jest MyAnimeList, który pozwala fanom
 japońskiej animacji zapisywać listę już obejrzanych seriali, znajdywać podobne,
 czy też udzielać się na forum. Jednak przedmiotem badań w tej pracy jest inna
-funkcja tego serwisu, mianowicie możliwość wystawiania oceny posczególnym
+funkcja tego serwisu, mianowicie możliwość wystawiania oceny poszczególnym
 serialom przez użytkowników. Poznanie sposobu w jaki użytkownicy oceniają
 seriale i co ma na to wpływ pozwala nie tylko poznać pewne zależności, o
-których wiedza pozwoli udoskonalić ten serwis, w szczególności system
+których wiedza pozwoli udoskonalić ten serwis, w~szczególności system
 oceniania, ale zrozumieć jak działają elementy ludzkiej psychiki odpowiedzialne
-za ocenianie odebranej rozrywki.
+za ocenianie odebranej rozrywki. 
 \section{Cel}
-Celem tych badań jest analiza rozkładów badanych danych, w szczególności:
-ilości obejrznych seriali, daty urodzenia, płci, kraju pochodzenia, oraz ocena
-wpływu tych czynników na średnią ocene użytkownika.
+Celem tych badań jest analiza rozkładów badanych danych, w~szczególności:
+ilości obejrzanych seriali, daty urodzenia, płci, kraju pochodzenia, oraz ocena
+wpływu tych czynników na średnią ocenę użytkownika.
 \section{Badania}
+\subsection{Estymacja rozkładów}
 <<Testy>>=
 bdate.num <- as.numeric(bdate)
+
+parametry <- c("Mediana", "Średnia", "Odchylenie std.", "Skośność", "Kurtoza")
+
 score.pars <- as.table(round(unlist(descdist(score, graph=FALSE)[3:7]),2))
-rownames(score.pars) <- c("Mediana", "Średnia", "Odchylenie std.", "Skośność", "Kurtoza")
+rownames(score.pars) <- parametry
 
 bdate.pars <- as.table(round(unlist(descdist(bdate.num, graph=FALSE)[3:7]),2))
-rownames(bdate.pars) <- c("Mediana", "Średnia", "Odchylenie std.", "Skośność", "Kurtoza")
+rownames(bdate.pars) <- parametry
 
 shows.pars <- as.table(round(unlist(descdist(shows, graph=FALSE)[3:7]),2))
-rownames(shows.pars) <- c("Mediana", "Średnia", "Odchylenie std.", "Skośność", "Kurtoza")
+rownames(shows.pars) <- parametry
 
 score.fit <- fitdist(score, 'logis')
 bdate.fit <- fitdist(bdate.num, 'logis')
@@ -192,7 +212,7 @@ location.umw = pairwise.wilcox.test(score, country, p.adjust.method="none")
 @
 
 Na podstawie parametrów rozkładu średniej oceny użytkownika (tab.
-\ref{tab:score_pars}), oraz wyglądu wylresu tego rozkładu (rys.
+\ref{tab:score_pars}), oraz wyglądu wykresu tego rozkładu (rys.
 \ref{fig:oceny}), uznano że najbardziej podobnym rozkładem jest rozkład
 logistyczny. Dopasowano rozkład uzyskując parametry: położenie wynoszące
 \num{\Sexpr{round(score.fit$estimate[1],2)}} i skalę wynoszącą
@@ -203,13 +223,6 @@ dokładności dopasowania  przeprowadzono test Craméra-von Misesa, uzyskując
 wartość parametru $p$ wynoszącą \num{\Sexpr{round(score.fitp, 2)}}, co nie daje
 podstaw do odrzucenia hipotezy że ten rozkład opisuje tę próbę, przy przyjętym
 poziomie istotności $\alpha = 0.05$.
-
-\begin{table}[H]
-    \centering
-    \caption{Parametry rozkładu średniej oceny użytkownika}
-    \Sexpr{kable(score.pars, col.names=c("Parametr", "Wartość"), booktabs=TRUE)}
-    \label{tab:score_pars}
-\end{table}
 
 <<oceny, fig.cap="Rozkład średniej oceny z estymowanym rozkładem">>=
 bins <- 0.13
@@ -240,10 +253,22 @@ ggplot(users.scored.sample,
 
 \begin{table}[H]
     \centering
-    \caption{Parametry rozkładu daty urzodzenia użytkownika}
-    \Sexpr{kable(bdate.pars, col.names=c("Parametr", "Wartość"), booktabs=TRUE)}
-    \label{tab:bdate_pars}
+    \caption{Parametry rozkładu średniej oceny użytkownika}
+    \Sexpr{kable(score.pars, col.names=c("Parametr", "Wartość"), booktabs=TRUE)}
+    \label{tab:score_pars}
 \end{table}
+
+Podobnie w przypadku rozkładu roku urodzenia, którego parametry przedstawia
+tablica \ref{tab:bdate_pars} (Wartości są w dniach od 01.01.1970), dopasowano
+rozkład logistyczny o parametrach: położenie wynoszące
+\num{\Sexpr{round(bdate.fit$estimate[1],2)}} i skala wynosząca
+\num{\Sexpr{round(bdate.fit$estimate[2],2)}}. Rozkład wraz z estymacją jest
+przedstawiony na rysunku \ref{fig:daty}, natomiast rysunek \ref{fig:qq_daty}
+przedstawia wykres kwantyl\-/kwantyl. Jak widać ten rozkład już nie jest aż tak
+dobrze opisywany przez estymowany rozkład, nie mniej z~przeprowadzonego testu
+Craméra-von Misesa uzyskano wartość $p$~wynoszącą
+\num{\Sexpr{round(bdate.fitp,2)}}, co oznacza brak podstaw do odrzucenia
+rozkładu estymowanego.
 
 <<daty, fig.cap="Rozkład daty urodzenia z estymowanym rozkładem">>=
 bins <- 200
@@ -270,7 +295,25 @@ ggplot(users.scored.sample,
     scale_y_continuous(name="Wartości z próby")
 @
 
-<<watched, fig.cap="Podpis">>=
+\begin{table}[H]
+    \centering
+    \caption{Parametry rozkładu daty urodzenia użytkownika}
+    \Sexpr{kable(bdate.pars, col.names=c("Parametr", "Wartość [dni]"), booktabs=TRUE)}
+    \label{tab:bdate_pars}
+\end{table}
+
+Jako ostani sprawdzono rozkład liczby obejrzanych seriali przez użytkownika. Na
+podstawie parametrów(tab. \ref{tab:shows_pars}), zdecydowano o estymacji
+rozkładem gamma, dopasowanie pozwoliło uzyskać parametry: kształt równy
+\num{\Sexpr{round(shows.fit$estimate[1],2)}} i skalę równą
+\num{\Sexpr{round(shows.fit$estimate[2],2)}}. Jest on zaznaczony na rysunku
+\ref{fig:watched}, natomiast rysunek \ref{fig:qq_shows} przedstawia wykres
+kwantyl-kwantyl, który wskazuje na dosyć mocne odchylenie rozkładu próby od
+estymowanego, co potwierdza wynik testu Craméra-von Misesa, z którego uzyskano
+wartość $p$ wynoszącą \num{\Sexpr{round(shows.fitp,3)}}. Wobec tego są podstawy
+by odrzucić hipotezę o dopasowaniu estymowanego rozkładu.
+
+<<watched, fig.cap="Rozkład liczby obejrzanych seriali z estymowanym rozkładem">>=
 bins <- 10
 
 xseq <- seq(min(shows),
@@ -284,56 +327,114 @@ ggplot() +
 		       y=..count../sum(..count..)),
 		   binwidth=bins) +
     geom_line(aes(xseq, scorn*bins), col="red") +
-    scale_x_continuous(name="Komplecja", limits=c(NA, 1000)) +
-    scale_y_continuous(name="Prawdop")
+    scale_x_continuous(name="Liczba obejrzanych seriali", limits=c(1, 2000)) +
+    scale_y_continuous(name="Częstotliwość występowania")
 @
 
-<<qq_shows, fig.cap="Podpis">>=
+<<qq_shows, fig.cap="Wykres K-K liczby obejrzanych seriali względem estymowanego rozkładu">>=
 ggplot(users.scored.sample,
        aes(sample=user_completed, group=1)) +
-    stat_qq(distribution=qgamma,
-	    dparams=as.list(shows.fit$estimate)) +
-    stat_qq_line(distribution=qgamma,
-		 dparams=as.list(shows.fit$estimate))
-@
-
-<<bdate_score, fig.cap="Podpis">>=
-ggplot(users.scored.sample, aes(x=birth_date, y=stats_mean_score)) +
-    geom_point() +
-    geom_smooth(method='lm', col='red') +
-    scale_x_date(name="Komplecja") +
-    scale_y_continuous(name="Prawdop")
-@
-
-<<shows_score, fig.cap="Podpis">>=
-ggplot(users.scored.sample, aes(x=user_completed, y=stats_mean_score)) +
-    geom_point() +
-    geom_smooth(method='lm', col='red') +
-    scale_x_continuous(name="Komplecja", limits=c(0,2000)) +
-    scale_y_continuous(name="Prawdop")
-@
-
-<<sex_score, fig.cap="Podpis">>=
-ggplot(users.scored, aes(x=factor(gender), y=stats_mean_score)) +
-    geom_boxplot(coef=6) +
-    scale_x_discrete(name="Komplecja") +
-    scale_y_continuous(name="Prawdop")
-@
-
-
-<<country_score, fig.cap="Podpis">>==
-ggplot(users.scored, aes(x=location, y=stats_mean_score)) +
-    geom_boxplot(coef=6) +
-    theme(axis.text.x = element_text(angle = 60, hjust=1)) +
-    scale_x_discrete(name="Komplecja") +
-    scale_y_continuous(name="Prawdop")
+    stat_qq(distribution=qgamma, dparams=as.list(shows.fit$estimate)) +
+    stat_qq_line(distribution=qgamma, dparams=as.list(shows.fit$estimate)) +
+    scale_x_continuous(name="Wartości teoretyczne") +
+    scale_y_continuous(name="Wartości z próby")
 @
 
 \begin{table}[H]
     \centering
+    \caption{Parametry rozkładu liczby obejrzanych seriali}
+    \Sexpr{kable(shows.pars, col.names=c("Parametr", "Wartość"), booktabs=TRUE)}
+    \label{tab:shows_pars}
+\end{table}
+
+\subsection{Badanie korelacji}
+Najpierw zbadano zależność pomiędzy datą urodzenia a średnią oceną, która jest
+przedstawiona na rysunku \ref{fig:bdate_score}, na którym czerwoną linią
+zaznaczona jest prosta regresji liniowej. Obliczono korelację pomiędzy danymi
+uzyskując wartość \num{\Sexpr{round(bdate.cor$estimate,3)}}, co wskazuje na
+bardzo nikłą zależność rosnącą. Przeprowadzono test t-Studenta sprawdzający
+otrzymany wynik, otrzymując wartość $p$ wynoszącą
+\num{\Sexpr{round(bdate.cor$p.value,2)}}. Ta wartość wskazuje na brak podstaw
+do odrzucenia hipotezy o znaczeniu tej zależności, toteż można stwierdzić, że
+młodsze osoby oceniają minimalnie wyżej niż starsze.
+
+<<bdate_score, fig.cap="Zależność średniej oceny od urodzin użytkownika">>=
+ggplot(users.scored.sample, aes(x=birth_date, y=stats_mean_score)) +
+    geom_point() +
+    geom_smooth(method='lm', col='red') +
+    scale_x_date(name="Data urodzenia") +
+    scale_y_continuous(name="Ocena")
+@
+
+W kolejnym kroku zbadano korelację liczby obejrzanych seriali (rys.
+\ref{fig:shows_score}), która wyniosła
+\num{\Sexpr{round(shows.cor$estimate,2)}}, co oznacza zależność malejącą.
+Następnie przetestowano uzyskano wynik, otrzymując wartość $p$ wynoszącą
+\num{\Sexpr{round(shows.cor$p.value,3)}}, co oznacza że istnieją podstawy do
+odrzucenia hipotezy o korelacji danych. Oznacza to że nie można powiedzieć, że
+występuje zależność pomiędzy liczbą obejrzanych seriali a średnią z
+wystawionych ocen.
+
+<<shows_score, fig.cap="Zależność średniej oceny od liczby obejrzanych seriali">>=
+ggplot(users.scored.sample, aes(x=user_completed, y=stats_mean_score)) +
+    geom_point() +
+    geom_smooth(method='lm', col='red') +
+    scale_x_continuous(name="Liczba obejrzanych seriali", limits=c(0,2000)) +
+    scale_y_continuous(name="Ocena")
+@
+
+\subsection{Analiza wariancji}
+
+Ponieważ badane rozkłady nie są rozkładami normalnymi, nie przeprowadzono ANOVy,
+natomiast różnice zbadano wykorzystując test Kruskala-Wallisa. Aby móc z niego
+skorzystać jednak konieczne jest spełnienie warunku o jednorodności wariancji
+danych, co sprawdza test Levene'a. Rysunek \ref{fig:sex_score} przedstawia
+wykres ramka-wąsy rozkładów średniej wystawionych ocen dla płci, co było
+przedmiotem pierwszego zagadnienia. W wyniku testu Levene'a uzyskano wartość
+$p$ wynoszącą \num{\Sexpr{round(gender.lev[['Pr(>F)']][1],2)}}, co oznacza brak
+podstaw do odrzucenia hipotezy o jednorodności wariancji, toteż można wykonać
+test Kruskala-Wallisa. Uzyskano wynik wartości $p$ wynoszący
+\num{\Sexpr{round(gender.kw$p.value,2)}}, co oznacza brak podstaw do odrzucenia
+hipotezy o równości rozkładów dla każdej z płci. Oznacza to że płeć użytkownika
+nie wpływa na średnią z wystawionych ocen.
+
+<<sex_score, fig.cap="Rozkład oceny względem płci">>=
+ggplot(users.scored, aes(x=factor(gender), y=stats_mean_score)) +
+    geom_boxplot(coef=6) +
+    scale_x_discrete(name="Płeć", labels=c("Kobieta", "Mężczyzna", "Inne")) +
+    scale_y_continuous(name="Ocena")
+@
+
+<<country_score, fig.cap="Rozkład oceny względem państwa zamieszkania">>==
+ggplot(users.scored, aes(x=location, y=stats_mean_score)) +
+    geom_boxplot(coef=6) +
+    theme(axis.text.x = element_text(angle = 60, hjust=1)) +
+    scale_x_discrete(name="Państwo") +
+    scale_y_continuous(name="Ocena")
+@
+
+Kolejno zbadano rozkłady dla państw zamieszkanych przez użytkowników, co
+przedstawia rysunek \ref{fig:country_score}. W wyniku testu Levene'a uzyskano
+wartość $p$ wynosząca \num{\Sexpr{round(location.lev[['Pr(>F)']][1],2)}}, co
+pozwoliło następnie na przeprowadzenie testu Kruskala-Wallisa, uzyskując $p$
+wynoszące \num{\Sexpr{round(location.kw$p.value,3)}}, co daje podstawy do
+odrzucenia hipotezy o równości rozkładów. Oznacza to, że średnie oceny dla
+państw posiadają istotne różnice.
+
+Aby zlokalizować występowanie różnic w zależności od państw przeprowadzono test
+U Manna-Whitneya, którego wyniki przedstawia tablica \ref{tab:umw}. Jak widać
+najwięcej istotnych statystycznie różnic występuje pomiędzy Słowacją a
+pozostałymi państwami (z wyjątkiem Liechtenstein), ponadto istnieją istotne
+różnice pomiędzy Węgrami a Niemcami, oraz pomiędzy Węgrami i Polakami. Wynika z~%
+tego że mieszkańcy Słowacji oceniają seriale z wyższymi ocenami niż pozostałe
+państwa Centralnej Europy, za wyjątkiem Liechensteinu, ponadto mieszkańcy Węgier
+oceniają wyżej niż mieszkańcy Polski i~wyżej niż mieszkańcy Niemiec.
+\begin{table}[H]
+    \centering
     \caption{Wyniki testu U Manna-Whitneya}
     \Sexpr{kable(round(location.umw$p.value[,1:4],2), booktabs=TRUE)}
-    \Sexpr{kable(round(location.umw$p.value[,4:7],2), booktabs=TRUE)}
+    \Sexpr{kable(round(location.umw$p.value[,5:7],2), booktabs=TRUE)}
+    \label{tab:umw}
 \end{table}
 % Bibliografia
 
