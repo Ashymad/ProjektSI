@@ -48,6 +48,14 @@ Sys.setenv(LC_ALL="pl_PL.UTF-8")
 options(knitr.kable.NA = "--")
 @ 
 
+<<Biblioteki>>=
+library(ggplot2)
+library(kableExtra)
+library(nortest)
+library(fitdistrplus)
+options(knitr.table.format = "latex")
+@
+
 <<tikzSettings>>=
 options(width=71)
 options(digits=7)
@@ -86,9 +94,12 @@ options(tikzMetricsDictionary="~/R/tikzMetrics") # speeds tikz up
 @ 
 
 <<Data>>=
-load("data/data.Rdata")
-#countries <- read.csv("data/country-keyword-list.csv", fileEncoding="UTF-16",
-		      #header=FALSE)
+users <- read.csv("data/users_cleaned.csv")
+
+users.scored <- users[users$stats_mean_score > 0,]
+users.scored <- users.scored[users.scored$user_completed > 0,]
+users.scored$birth_date <- as.Date(users.scored$birth_date)
+
 countries <- c("Austria", "Czech Republic", "Germany", "Hungary",
 	       "Liechtenstein", "Poland", "Slovakia", "Switzerland")
 users.scored <- users.scored[grep(paste(countries,collapse="|"), users.scored$location, ignore.case=TRUE),]
@@ -106,33 +117,13 @@ users.scored$location <- plyr::mapvalues(users.scored$location,
 					      "Słowacja",
 					      "Szwajcaria"))
 
-
-#users.scored <- users.scored[users.scored$location == "poland",]
-#users.scored <- users.scored[users.scored$stats_mean_score < 9.82 &
-			     #users.scored$stats_mean_score > 5.4,]
-
-users.scored <- users.scored[users.scored$user_completed > 0,]
 score <- users.scored$stats_mean_score
 bdate <- users.scored$birth_date
 shows <- users.scored$user_completed
 sex <- users.scored$gender
 country <- users.scored$location
 users.scored.sample <- users.scored[sample(length(users.scored[[1]]), 2000),]
-#cities = read.table("data/miasta_polski_teryt.csv", sep=";", header=TRUE,
-#		    fileEncoding="Windows-1250")
 @
-
-<<Biblioteki>>=
-library(ggplot2)
-library(kableExtra)
-library(MASS)
-library(nortest)
-library(Hmisc)
-library(fitdistrplus)
-options(knitr.table.format = "latex")
-
-@
-
 
 \title{Analiza oceniania japońskich seriali animowanych przez
 użytkowników serwisu MyAnimeList w Europie Centralnej}
@@ -199,15 +190,15 @@ shows.fit <- fitdist(shows, 'gamma')
 
 size = 100000
 
-score.fitp <- 1/6*exp(-CramerVonMisesTwoSamples(score, rlogis(size,
+score.fitp <- 1/6*exp(-CDFt::CramerVonMisesTwoSamples(score, rlogis(size,
 							      score.fit$estimate[1],
 							      score.fit$estimate[2])))
 
-bdate.fitp <- 1/6*exp(-CramerVonMisesTwoSamples(bdate.num, rlogis(size,
+bdate.fitp <- 1/6*exp(-CDFt::CramerVonMisesTwoSamples(bdate.num, rlogis(size,
 								  bdate.fit$estimate[1],
 								  bdate.fit$estimate[2])))
 
-shows.fitp <- 1/6*exp(-CramerVonMisesTwoSamples(shows, rgamma(size,
+shows.fitp <- 1/6*exp(-CDFt::CramerVonMisesTwoSamples(shows, rgamma(size,
 							      shows.fit$estimate[1],
 							      shows.fit$estimate[2])))
 
@@ -264,7 +255,6 @@ ggplot(users.scored.sample,
     stat_qq_line(distribution=qlogis, dparams=as.list(score.fit$estimate)) +
     scale_x_continuous(name="Wartości teoretyczne") +
     scale_y_continuous(name="Wartości z próby")
-
 @
 
 \begin{table}[H]
@@ -319,7 +309,7 @@ ggplot(users.scored.sample,
 \end{table}
 
 Jako ostani sprawdzono rozkład liczby obejrzanych seriali przez użytkownika. Na
-podstawie parametrów(tab. \ref{tab:shows_pars}), zdecydowano o estymacji
+podstawie parametrów (tab. \ref{tab:shows_pars}), zdecydowano o estymacji
 rozkładem gamma, dopasowanie pozwoliło uzyskać parametry: kształt równy
 \num{\Sexpr{round(shows.fit$estimate[1],2)}} i skalę równą
 \num{\Sexpr{round(shows.fit$estimate[2],2)}}. Jest on zaznaczony na rysunku
@@ -420,14 +410,14 @@ danych, co sprawdza test Levene'a.
 
 <<sex_score, fig.cap="Rozkład oceny względem płci">>=
 ggplot(users.scored, aes(x=factor(gender), y=stats_mean_score)) +
-    geom_boxplot(coef=6) +
+    geom_boxplot() +
     scale_x_discrete(name="Płeć", labels=c("Kobieta", "Mężczyzna", "Inne")) +
     scale_y_continuous(name="Ocena")
 @
 
 <<country_score, fig.cap="Rozkład oceny względem państwa zamieszkania">>==
 ggplot(users.scored, aes(x=location, y=stats_mean_score)) +
-    geom_boxplot(coef=6) +
+    geom_boxplot() +
     theme(axis.text.x = element_text(angle = 60, hjust=1)) +
     scale_x_discrete(name="Państwo") +
     scale_y_continuous(name="Ocena")
